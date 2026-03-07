@@ -1,0 +1,170 @@
+# MIT License
+#
+# Copyright (c) 2026 Christopher Gilliard
+#
+# Permission is hereby granted, free of charge, to any person obtaining a copy
+# of this software and associated documentation files (the "Software"), to deal
+# in the Software without restriction, including without limitation the rights
+# to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+# copies of the Software, and to permit persons to whom the Software is
+# furnished to do so, subject to the following conditions:
+#
+# The above copyright notice and this permission notice shall be included in
+# all copies or substantial portions of the Software.
+#
+# THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+# IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+# FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+# AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+# LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+# OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+# SOFTWARE.
+
+# ELF Header
+7F 45 4C 46             # e_ident[EI_MAG0-3] magic number ELF
+02                      # e_ident[EI_CLASS] 64-bit
+01                      # e_ident[EI_DATA] little endian
+01                      # e_ident[EI_VERSION] original ELF version
+03                      # e_ident[EI_OSABI] FreeBSD compatible
+00                      # e_ident[EI_ABIVERSION] 0
+00 00 00 00 00 00 00    # e_ident[EI_PAD]
+02 00                   # e_type executable
+3E 00                   # e_machine AMD64 / x86-64
+01 00 00 00             # e_version original
+
+78 00 60 00 00 00 00 00 # e_entry entry point (header size + base address 0x600000)
+40 00 00 00 00 00 00 00 # e_phoff program header table offset
+00 00 00 00 00 00 00 00 # e_shoff no section header table
+
+00 00 00 00             # e_flags
+40 00                   # e_ehsize 64 bytes
+38 00                   # e_phentsize program header entry size
+01 00                   # e_phnum 1 program header
+
+00 00                   # e_shentsize
+00 00                   # e_shnum 0
+00 00                   # e_shstrndx 0
+
+# Program Header (PT_LOAD, readable+executable)
+01 00 00 00             # p_type PT_LOAD
+01 00 00 00             # p_flags PF_X (executable)
+00 00 00 00 00 00 00 00 # p_offset file offset 0
+00 00 60 00 00 00 00 00 # p_vaddr virtual address 0x600000
+00 00 60 00 00 00 00 00 # p_paddr physical address (ignored)
+E5 00 00 00 00 00 00 00 # p_filesz file size (header + code ≈ 229 bytes)
+E5 00 00 00 00 00 00 00 # p_memsz memory size (same as filesz)
+01 00 00 00 00 00 00 00 # p_align 1 byte alignment
+
+# _start entry point
+58                      # pop rax          discard argc
+5F                      # pop rdi          discard argv[0] (program name)
+5F                      # pop rdi          argv[1] = input filename
+31 F6                   # xor esi, esi     O_RDONLY = 0
+6A 02                   # push 2
+58                      # pop rax          __NR_open = 2
+99                      # cdq              rdx = 0
+0F 05                   # syscall          open(input)
+50                      # push rax
+41 58                   # pop r8           save input fd in r8
+68 FF FF 00 00          # push 0xFFFF
+5E                      # pop rsi          size = 65535
+6A 09                   # push 9
+58                      # pop rax          __NR_mmap = 9
+31 FF                   # xor edi, edi     addr = NULL
+6A 01 5A                # push 1; pop rdx  PROT_READ
+6A 02 41 5A             # push 2; pop r10  MAP_PRIVATE
+45 31 C9                # xor r9d, r9d     offset = 0
+0F 05                   # syscall          mmap input file
+49 89 C4                # mov r12, rax     save input base in r12
+
+5F                      # pop rdi          argv[2] = output filename
+6A 02 58                # rax = 2 (__NR_open)
+6A 42 5E                # rsi = O_RDWR | O_CREAT = 0x42
+BA ED 01 00 00          # edx = 0755 permissions
+0F 05                   # syscall          open output
+49 89 C6                # mov r14, rax     save output fd in r14
+50                      # push rax
+41 58                   # pop r8           fd for mmap
+48 89 C7                # mov rdi, rax     fd
+BE FF FF 00 00          # esi = 65535
+48 89 F6                # mov rsi, rsi     (keep size)
+6A 4D 58                # rax = 77 (__NR_ftruncate)
+0F 05                   # syscall          ftruncate output file
+68 FF FF 00 00          # push 0xFFFF
+5E                      # pop rsi
+6A 09                   # push 9
+58                      # pop rax
+31 FF                   # xor edi, edi
+6A 03 5A                # push 3; pop rdx  PROT_READ|PROT_WRITE
+6A 01 41 5A             # push 1; pop r10  MAP_SHARED
+45 31 C9                # xor r9d, r9d
+0F 05                   # syscall          mmap output
+49 89 C5                # mov r13, rax     save output base in r13
+
+# Setup before main loop
+4C 89 E6                # mov rsi, r12     input pointer
+4C 89 EF                # mov rdi, r13     output pointer
+B9 00 40 00 00          # mov ecx, 16384   max bytes to process (safety)
+41 B9 00 00 00 00       # mov r9d, 0       nibble counter (odd/even)
+41 BA 00 00 00 00       # mov r10d, 0      temporary high nibble
+41 BB 00 00 00 00       # mov r11d, 0      comment flag
+
+# Main loop start
+44 8A 06                # mov r8b, [rsi]   load byte
+45 84 C0                # test r8b, r8b    null terminator?
+74 4E                   # jz exit
+
+41 80 F8 0A             # cmp r8b, 10      newline?
+75 03                   # jne skip_nl
+41 B3 00                # mov r11b, 0      end comment on newline
+# skip_nl:
+45 84 DB                # test r11b, 1     in comment?
+75 3B                   # jnz next_byte
+41 80 F8 23             # cmp r8b, '#'
+75 05                   # jne skip_comment
+41 B3 01                # mov r11b, 1      start comment
+EB 30                   # jmp next_byte
+# skip_comment:
+
+41 80 E8 30             # sub r8b, '0'
+41 80 F8 09             # cmp r8b, 9
+76 0A                   # jbe digit (0-9)
+
+41 80 E8 07             # sub r8b, 7       A-F adjustment
+41 80 F8 0F             # cmp r8b, 15
+77 1C                   # ja next_byte     invalid char
+
+# valid hex digit
+49 FF C1                # inc r9           count nibbles
+4C 89 C8                # mov rax, r9
+A8 01                   # test al, 1       odd or even?
+74 09                   # jz output        even → combine
+
+# odd → store high nibble
+45 89 C2                # mov r10b, r8b
+41 C1 E2 04             # shl r10b, 4
+EB 09                   # jmp next_byte
+
+# even → combine and write
+# output:
+45 08 D0                # or r8b, r10b     low | (high << 4)
+44 88 07                # mov [rdi], r8b   store byte
+48 FF C7                # inc rdi          advance output
+
+# next_byte:
+48 FF C6                # inc rsi          advance input
+E2 AA                   # loop main
+
+# exit / cleanup
+48 89 F8                # mov rax, rdi     current output pointer
+4C 29 E8                # sub rax, r13     bytes written
+48 89 C6                # mov rsi, rax     length
+4C 89 F7                # mov rdi, r14     output fd
+6A 4D 58                # push 77; pop rax __NR_ftruncate
+0F 05                   # syscall
+
+6A 3C                   # push 60          __NR_exit
+58                      # pop rax
+6A 00                   # push 0
+5F                      # pop rdi          exit code 0
+0F 05                   # syscall
