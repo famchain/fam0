@@ -4,6 +4,7 @@ _start:
     addi    s1, s1, 256         # Buffer at PC + 256
     mv      s2, s1              # s2 = current pointer
     li      t6, 0               # in comment
+    li      s3, 0
 
 wait_for_input:
     # --- 1. Read UART ---
@@ -17,7 +18,6 @@ wait_for_input:
     bne     t1, t3, skip_end_comment
     li      t6, 0
 skip_end_comment:
-
     li      t3, 10
     bne     t1, t3, skip_end_comment2
     li      t6, 0
@@ -54,10 +54,28 @@ check_lower_bound:
     li      t3, 10
     blt     t1, t3, wait_for_input # It was between '9' and 'A' (ASCII 58-64)
 
+#is_hex:
+#    sb      t2, 0(s2)           # Store the ORIGINAL ASCII char (t2)
+#    addi    s2, s2, 1
+#    j       wait_for_input
+
 is_hex:
-    sb      t2, 0(s2)           # Store the ORIGINAL ASCII char (t2)
-    addi    s2, s2, 1
+    li      t3, 1
+    beq     s3, t3, store_low_nibble
+
+    # --- 2. High Nibble Case (s3 == 0) ---
+    slli    s4, t1, 4           # s4 = (0-15) << 4
+    li      s3, 1               # Set state to 1 (waiting for low)
+    j       wait_for_input      # Don't store yet!
+
+store_low_nibble:
+    # --- 3. Low Nibble Case (s3 == 1) ---
+    or      s4, s4, t1          # s4 = (high << 4) | low
+    sb      s4, 0(s2)           # STORE THE RAW BYTE
+    addi    s2, s2, 1           # Increment binary pointer
+    li      s3, 0               # Reset state to 0
     j       wait_for_input
+
 
 start_echo:
     mv      t4, s1              # t4 = Pointer to start of buffer
