@@ -80,7 +80,7 @@ store_low_nibble:
 start_echo:
     mv      t4, s1              # t4 = Pointer to start of buffer
 echo_loop:
-    beq     t4, s2, print_final_nl # If reached end of buffer, go to Newline
+    beq     t4, s2, exit        # If reached end of buffer, go to end
     lbu     t1, 0(t4)           # Load char from buffer
 
 wait_tx:
@@ -92,15 +92,7 @@ wait_tx:
     addi    t4, t4, 1           # Increment buffer pointer
     j       echo_loop           # Repeat
 
-print_final_nl:
-    li      t1, 10              # ASCII '\n'
-wait_nl_tx:
-    lbu     t5, 5(t0)           # Read Status
-    andi    t5, t5, 32          # Mask THRE
-    beqz    t5, wait_nl_tx      # Wait if busy
-    sb      t1, 0(t0)           # Send Newline
-
-final_spin:
+exit:
     lui t0, 0x100
     li t1, 0x5555
     sw t1, 0(t0)
