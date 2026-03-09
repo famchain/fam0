@@ -32,9 +32,7 @@ B7 02 00 10 # lui	t0,0x10000               ; Setup UART
 93 0F 00 00 # li        t6,0                     ; init in comment = 0
 93 09 00 00 # li        s3,0                     ; init nibble toggle = 0
 
-# ──────────────────────────────────────────────────────────────────────────────
 # Main loop
-# ──────────────────────────────────────────────────────────────────────────────
 03 CF 52 00 # lbu       t5,5(t0) # 0x10000005    ; Check UART status
 13 7F 1F 00 # andi      t5,t5,1                  ; mask
 E3 0C 0F FE # beqz	t5,0x18                  ; wait not ready for output
