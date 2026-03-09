@@ -96,6 +96,7 @@ exit:
     lui t0, 0x100
     li t1, 0x5555
     sw t1, 0(t0)
+final_spin:
     wfi
     j       final_spin
 
