@@ -1,8 +1,5 @@
 #!/bin/sh
 
-# Clean directory
-rm -fr bin/*
-
 # Build fam0 from seed binary
 (cat fam0.fam0; printf '\004') | qemu-system-riscv64 \
 	-machine virt \
