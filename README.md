@@ -8,6 +8,8 @@ You can use the seed to "recompile" its own source code (fam0.fam0) and verify t
 
 ### Quick validation
 
+You will need to ensure the qemu-system-riscv64 is present on your system.
+
 ```
 # Review fam0.fam0 source file
 cat ./fam0.fam0
