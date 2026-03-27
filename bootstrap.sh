@@ -1,7 +1,7 @@
 #!/bin/sh
 
 # Build fam0 from seed binary
-(cat fam0.fam0; printf '\004') | qemu-system-riscv64 \
+(cat fam0.fam0; printf '\004') | qemu-system-riscv32 \
 	-machine virt \
 	-nographic \
 	-bios none \
