@@ -25,84 +25,81 @@
 # RISC-V 64-bit Hex-to-Binary Converter (Bootstrapping Seed)
 # ──────────────────────────────────────────────────────────────────────────────
 
-.section .text
-.global _start
-
 _start:
-	li	s6, 10		# Constant: Newline (\n) and Hex limit (10)
-	li	s5, 0x10000000	# Constant: UART base address
-	auipc	s1, 0x0		# Get current Program Counter
-	addi	s1, s1, 256	# s1 = Start of binary output buffer (PC + 256)
-	mv	s2, s1		# s2 = High-water mark pointer (iterator)
-	li	s4, 0		# s4 = In-comment flag (0 = false)
-	li 	s3, 1		# s3 = Nibble toggle (1 = waiting for High)
+	li	s6, 10			# Constant: (\n) and Hex limit (10)
+	li	s5, 0x10000000		# Constant: UART base address
+	auipc	s1, 0x0			# Get current Program Counter
+	addi	s1, s1, 256		# s1 = Start of bin output (PC + 256)
+	mv	s2, s1			# s2 = High-water mark pointer (itt)
+	li	s4, 0			# s4 = In-comment flag (0 = false)
+	li 	s3, 1			# s3 = toggle (1 = waiting for high)
 
-# Main input processing loop
+	# Main input processing loop
 loop:
 	# UART poll: check for incoming byte
-	lbu	t5, 5(s5)	# Read Line Status Register
-	andi	t5, t5, 1	# Mask: Data Ready bit
-	beqz	t5, loop	# Wait if no data
-	lbu	t1, 0(s5)	# Read byte from Receive Buffer
+	lbu	t5, 5(s5)		# Read Line Status Register
+	andi	t5, t5, 1		# Mask: Data Ready bit
+	beqz	t5, loop		# Wait if no data
+	lbu	t1, 0(s5)		# Read byte from Receive Buffer
 
 	# Logic: Handle line comments
-	bne	t1, s6, not_backn # If not newline, skip reset
-	li	s4, 0		  # At '\n', set in-comment = false
+	bne	t1, s6, not_backn	# If not newline, skip reset
+	li	s4, 0			# At '\n', set in-comment = false
 not_backn:
-	li	t3, '#'		# Load comment start delimiter
+	li	t3, '#'			# Load comment start delimiter
 	bne	t1, t3, skip_start_comment
-	li	s4, 1		# At '#', set in-comment = true
+	li	s4, 1			# At '#', set in-comment = true
 skip_start_comment:
 
 	# Logic: Check for End of Transmission (ASCII 4)
 	li	t3, 4 		
-	beq	t1, t3, end_loop # Exit input loop if EOT received
+	beq	t1, t3, end_loop	 # Exit input loop if EOT received
 
 	# If currently inside a comment, ignore all characters
 	bnez	s4, loop
 
 	# Logic: Skip whitespace and control codes
-	li	t3, 33		# ASCII 32 is space
-	blt	t1, t3, loop	# Ignore if <= space
+	li	t3, 33			# ASCII 32 is space
+	blt	t1, t3, loop		# Ignore if <= space
 
 	# Logic: ASCII Hex to Binary Nibble conversion
-	addi	t1, t1, -48 	# Normalize '0' to 0
-	bltu	t1, s6, store 	# If 0-9, it's a valid hex digit
-	addi	t1, t1, -7	# Normalize 'A'-'F' (55-48=7 offset)
+	addi	t1, t1, -48 		# Normalize '0' to 0
+	bltu	t1, s6, store	 	# If 0-9, it's a valid hex digit
+	addi	t1, t1, -7		# Normalize 'A'-'F' (55-48=7 offset)
 	li	t3, 16
-	bltu	t1, t3, store 	# If 10-15, it's a valid hex digit
-	j	loop		# Otherwise, skip invalid hex char
+	bltu	t1, t3, store 		# If 10-15, it's a valid hex digit
+	j	loop			# Otherwise, skip invalid hex char
 
-# Logic: Pack two 4-bit nibbles into one 8-bit byte
+	# Logic: Pack two 4-bit nibbles into one 8-bit byte
 store:
-	xori    s3, s3, 1	# Toggle high/low state
-	bnez	s3, store_low	# If now 1, we just finished the low nibble
-	slli	t4, t1, 4	# Store high nibble in t4
+	xori	s3, s3, 1		# Toggle high/low state
+	bnez	s3, store_low		# If 1, just finished the low nibble
+	slli	t4, t1, 4		# Store high nibble in t4
 	j	loop
 
 store_low:
-	or	t4, t4, t1	# Combine high and low nibbles
-	sb	t4, 0(s2)	# Store resulting byte in buffer
-	addi	s2, s2, 1	# Increment high-water pointer
+	or	t4, t4, t1		# Combine high and low nibbles
+	sb	t4, 0(s2)		# Store resulting byte in buffer
+	addi	s2, s2, 1		# Increment high-water pointer
 	j	loop
 end_loop:
 
-# Final Output: Stream the constructed binary back through the UART
+	# Final Output: Stream the constructed binary back through the UART
 output:
-	beq	s1, s2, end_output # Stop when read pointer matches write pointer
-	lbu	t3, 0(s1)	   # Load byte from buffer
-	addi	s1, s1, 1	   # Increment read pointer
+	beq	s1, s2, end_output 	# Stop when read ptr == write ptr
+	lbu	t3, 0(s1)		# Load byte from buffer
+	addi	s1, s1, 1		# Increment read pointer
 
 retry:
-	lbu	t1, 5(s5)	# Check Line Status Register
-	andi	t1, t1, 0x20	# Mask: Transmitter Holding Register Empty
-	beqz	t1, retry	# Wait until UART is ready to send
-	sb	t3, 0(s5)	# Send byte to UART
+	lbu	t1, 5(s5)		# Check Line Status Register
+	andi	t1, t1, 0x20		# Mask: Transmitter Holding Register
+	beqz	t1, retry		# Wait until UART is ready to send
+	sb	t3, 0(s5)		# Send byte to UART
 	j	output
 
-# Shutdown simulation
+	# Shutdown
 end_output:
-	li	s5, 0x100000	# QEMU Virt Test Device address
-	li	t1, 0x5555	# Power-off command
-        sw	t1, 0(s5)	# Exit simulation
+	li	s5, 0x100000		# QEMU Virt Device address
+	li	t1, 0x5555		# Power-off command
+	sw	t1, 0(s5)		# Exit
 
