@@ -22,7 +22,7 @@
 
 # ──────────────────────────────────────────────────────────────────────────────
 # file: fam0.fam0 - first stage bootstrap tool (188 bytes compiled)
-# RISC-V 64-bit Hex-to-Binary Converter (Bootstrapping Seed)
+# RISC-V 32-bit Hex-to-Binary Converter (Bootstrapping Seed)
 # ──────────────────────────────────────────────────────────────────────────────
 
 # --- Initialization ---
