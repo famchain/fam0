@@ -83,6 +83,6 @@ E3 0C 03 FE # beqz    t1, -8             ; Wait if busy
 # --- Exit (QEMU Virt) ---
 B7 0A 10 00 # lui     s5, 0x100          ; Test Device address
 37 53 00 00 # lui     s3, 0x5            ; 
-13 03 53 55 # addiw   s3, s3, 0x555      ; Load 0x5555
+13 03 53 55 # addi    s3, s3, 0x555      ; Load 0x5555
 23 A0 6A 00 # sw      s3, 0(s5)          ; Power off
 
