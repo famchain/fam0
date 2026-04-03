@@ -8,7 +8,7 @@ You can use the seed to "recompile" its own source code (fam0.fam0) and verify t
 
 ### Quick validation
 
-You will need to ensure the qemu-system-riscv64 is present on your system.
+You will need to ensure the qemu-system-riscv32 is present on your system.
 
 ```
 # Review fam0.fam0 source file
@@ -26,7 +26,7 @@ $ cat bootstrap.sh
 #!/bin/sh
 
 # Build fam0 from seed binary
-(cat fam0.fam0; printf '\004') | qemu-system-riscv64 \
+(cat fam0.fam0; printf '\004') | qemu-system-riscv32 \
 	-machine virt \
 	-nographic \
 	-bios none \
